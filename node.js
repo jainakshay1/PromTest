@@ -1,12 +1,43 @@
 const express = require("express")
 //const {HeavyTask} = require("./util");
 const { getRandomValues } = require("crypto");
+const responseTime = require("response-time")
+
+
+const client =require("prom-client")
+
+const collectdefault_matrix=client.collectDefaultMetrics;
 const { resolve } = require("path");
 const app =express();
 const PORT = process.env.PORT || 8000
+collectdefault_matrix({register:client.register})
 app.get("/",(req,res) => {
     return res.json({message : "hello this is a slow route"})
+    
 })
+
+//creating counter to know about the total req
+const totalreqc = new client.Counter(
+    {
+        name : "total_req",
+        help : "tells total req"
+    }
+)
+
+app.use(
+    responseTime((req,res,time)=>{
+        totalreqc.inc()
+    })
+)
+
+// creating route for metrics
+app.get("/metrics",async (req,res)=>{
+    res.setHeader('Content-Type',client.register.contentType)
+    const metrics = await client.register.metrics();
+    res.send(metrics)
+})
+
+
 
 app.get("/slow", async (req,res)=>{
     try{
